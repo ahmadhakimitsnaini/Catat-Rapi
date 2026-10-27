@@ -95,9 +95,9 @@ flowchart TD
         API["Retrofit + OkHttp\n(Market Price API)"]
         WM["WorkManager\n(Background Sync & Evaluasi Harian)"]
 
-        RI <|.. REPO
+        REPO -. "Implements" .-> RI
         REPO -- "@Transaction / Read Flow" --> ROOM
-        ROOM -- "Reactive Flow<T>" --> REPO
+        ROOM -- "Reactive Flow" --> REPO
         REPO -- "Fetch Market Price" --> API
         API -- "Simpan Harga & Timestamp ke Cache" --> ROOM
         WM -- "Trigger Periodik" --> UC
