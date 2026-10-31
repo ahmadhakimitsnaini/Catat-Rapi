@@ -14,18 +14,18 @@ Dokumen ini berisi daftar tugas (*todos*) terstruktur untuk seluruh tahap penger
 
 ### Sprint 1: Project Setup, Clean Architecture & Core Database
 #### 1.1 Konfigurasi Gradle & Dependensi
-- [ ] `[P0]` Ubah `minSdk` dari `24` menjadi `26` (Android 8.0) di `app/build.gradle.kts` (**NFR-R4**).
-- [ ] `[P0]` Tambahkan konfigurasi Kotlin & plugin KSP (`com.google.devtools.ksp`) di `gradle/libs.versions.toml` dan `build.gradle.kts`.
-- [ ] `[P0]` Konfigurasi Jetpack Compose (Compose BOM, Material 3, UI Tooling, Activity Compose, Lifecycle Runtime Compose).
-- [ ] `[P0]` Tambahkan Navigation Compose (`androidx.navigation:navigation-compose`).
-- [ ] `[P0]` Tambahkan Dependency Injection (Hilt: `hilt-android`, `hilt-compiler`, `hilt-navigation-compose`).
-- [ ] `[P0]` Tambahkan Room Database (`room-runtime`, `room-ktx`, `room-compiler`, `room-paging`, `room-testing`).
-- [ ] `[P0]` Tambahkan Paging 3 (`paging-runtime-ktx`, `paging-compose`) untuk daftar transaksi (**NFR-P5**).
-- [ ] `[P0]` Tambahkan pustaka grafik Vico Chart untuk Compose (`com.patrykandpatrick.vico`).
-- [ ] `[P0]` Tambahkan dependensi keamanan & latar belakang: `androidx.biometric`, `androidx.datastore:datastore-preferences`, `net.zetetic:sqlcipher-android`, `androidx.sqlite:sqlite-ktx`, dan `androidx.work:work-runtime-ktx`.
+- [x] `[P0]` Ubah `minSdk` dari `24` menjadi `26` (Android 8.0) di `app/build.gradle.kts` (**NFR-R4**).
+- [x] `[P0]` Tambahkan konfigurasi Kotlin & plugin KSP (`com.google.devtools.ksp`) di `gradle/libs.versions.toml` dan `build.gradle.kts`.
+- [x] `[P0]` Konfigurasi Jetpack Compose (Compose BOM, Material 3, UI Tooling, Activity Compose, Lifecycle Runtime Compose).
+- [x] `[P0]` Tambahkan Navigation Compose (`androidx.navigation:navigation-compose`).
+- [x] `[P0]` Tambahkan Dependency Injection (Hilt: `hilt-android`, `hilt-compiler`, `hilt-navigation-compose`).
+- [x] `[P0]` Tambahkan Room Database (`room-runtime`, `room-ktx`, `room-compiler`, `room-paging`, `room-testing`).
+- [x] `[P0]` Tambahkan Paging 3 (`paging-runtime-ktx`, `paging-compose`) untuk daftar transaksi (**NFR-P5**).
+- [x] `[P0]` Tambahkan pustaka grafik Vico Chart untuk Compose (`com.patrykandpatrick.vico`).
+- [x] `[P0]` Tambahkan dependensi keamanan & latar belakang: `androidx.biometric`, `androidx.datastore:datastore-preferences`, `net.zetetic:sqlcipher-android`, `androidx.sqlite:sqlite-ktx`, dan `androidx.work:work-runtime-ktx`.
 
 #### 1.2 Struktur Paket Clean Architecture ($\text{UI} \rightarrow \text{Domain} \leftarrow \text{Data}$)
-- [ ] `[P0]` Buat struktur paket modular di `com.example.catatrapi`:
+- [x] `[P0]` Buat struktur paket modular di `com.example.catatrapi`:
   - `data/local/entity`, `data/local/dao`, `data/local/converter`, `data/local/db`
   - `data/remote/api`, `data/remote/dto`
   - `data/repository`, `data/worker`
@@ -33,15 +33,15 @@ Dokumen ini berisi daftar tugas (*todos*) terstruktur untuk seluruh tahap penger
   - `ui/theme`, `ui/navigation`, `ui/components`
   - `ui/dashboard`, `ui/cashflow`, `ui/goals`, `ui/portfolio`, `ui/analytics`, `ui/onboarding`, `ui/auth`
   - `di/` (Modul Hilt: `DatabaseModule`, `RepositoryModule`, `NetworkModule`, `DispatcherModule`)
-- [ ] `[P0]` Setup tema Material 3 (`Color.kt`, `Type.kt`, `Theme.kt`) dengan palet finansial (hijau untung/pemasukan, merah rugi/pengeluaran, kuning peringatan) dan dukungan kontras & *font scaling* (**NFR-R5**).
-- [ ] `[P0]` Buat utilitas pemformatan mata uang Rupiah (`Rp1.250.000`) dan tanggal Bahasa Indonesia (**NFR-R5**).
+- [x] `[P0]` Setup tema Material 3 (`Color.kt`, `Type.kt`, `Theme.kt`) dengan palet finansial (hijau untung/pemasukan, merah rugi/pengeluaran, kuning peringatan) dan dukungan kontras & *font scaling* (**NFR-R5**).
+- [x] `[P0]` Buat utilitas pemformatan mata uang Rupiah (`Rp1.250.000`) dan tanggal Bahasa Indonesia (**NFR-R5**).
 
 #### 1.3 Skema Database Awal & TypeConverter (Room)
-- [ ] `[P0]` Buat `BigDecimalTypeConverter` (konversi `BigDecimal` $\leftrightarrow$ `String` murni/`PlainString` agar bebas galat *floating point*).
-- [ ] `[P0]` Buat entitas `WalletEntity` (`Wallets`): `id`, `name`, `type` (`CASH`, `BANK`, `EWALLET`), `balance`, `is_archived`, `created_at`.
-- [ ] `[P0]` Buat entitas `TransactionEntity` (`Transactions`): `id`, `wallet_id` (FK `RESTRICT`), `to_wallet_id` (FK nullable), `type` (`INCOME`, `EXPENSE`, `TRANSFER`, `INVESTMENT_BUY`, `INVESTMENT_SELL`), `amount`, `fee`, `category`, `note`, `occurred_at`, `created_at` beserta indeks pada `wallet_id` dan `occurred_at` (**NFR-P6**).
-- [ ] `[P0]` Buat `WalletDao` dan `TransactionDao` beserta kontrak query reaktif (`Flow`).
-- [ ] `[P0]` Inisialisasi `CatatRapiDatabase` dengan dukungan skema ekspor (`exportSchema = true`) untuk pengujian migrasi (**NFR-R2**).
+- [x] `[P0]` Buat `BigDecimalTypeConverter` (konversi `BigDecimal` $\leftrightarrow$ `String` murni/`PlainString` agar bebas galat *floating point*).
+- [x] `[P0]` Buat entitas `WalletEntity` (`Wallets`): `id`, `name`, `type` (`CASH`, `BANK`, `EWALLET`), `balance`, `is_archived`, `created_at`.
+- [x] `[P0]` Buat entitas `TransactionEntity` (`Transactions`): `id`, `wallet_id` (FK `RESTRICT`), `to_wallet_id` (FK nullable), `type` (`INCOME`, `EXPENSE`, `TRANSFER`, `INVESTMENT_BUY`, `INVESTMENT_SELL`), `amount`, `fee`, `category`, `note`, `occurred_at`, `created_at` beserta indeks pada `wallet_id` dan `occurred_at` (**NFR-P6**).
+- [x] `[P0]` Buat `WalletDao` dan `TransactionDao` beserta kontrak query reaktif (`Flow`).
+- [x] `[P0]` Inisialisasi `CatatRapiDatabase` dengan dukungan skema ekspor (`exportSchema = true`) untuk pengujian migrasi (**NFR-R2**).
 
 ---
 

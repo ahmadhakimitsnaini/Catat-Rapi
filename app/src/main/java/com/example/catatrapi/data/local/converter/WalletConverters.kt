@@ -1,4 +1,4 @@
-package com.example.catatrapi.data.local
+package com.example.catatrapi.data.local.converter
 
 import androidx.room.TypeConverter
 import com.example.catatrapi.domain.model.WalletType
