@@ -15,12 +15,19 @@ import com.example.catatrapi.ui.components.DateFormatterId
 import com.example.catatrapi.ui.theme.CatatRapiTheme
 import java.math.BigDecimal
 import androidx.lifecycle.lifecycleScope
-import com.example.catatrapi.data.local.db.DatabaseProvider
+import com.example.catatrapi.data.local.dao.WalletDao
 import com.example.catatrapi.data.local.entity.WalletEntity
 import com.example.catatrapi.domain.model.WalletType
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var walletDao: WalletDao
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,16 +67,16 @@ class MainActivity : ComponentActivity() {
             }
         }
         lifecycleScope.launch {
-            val database = DatabaseProvider.getDatabase(applicationContext)
-
-            database.walletDao().insert(
-                WalletEntity(
-                    name = "Dompet Tes",
-                    type = WalletType.CASH,
-                    balance = BigDecimal("100000"),
-                    createdAt = System.currentTimeMillis()
+            if (walletDao.observeActive().first().isEmpty()) {
+                walletDao.insert(
+                    WalletEntity(
+                        name = "Dompet Tes",
+                        type = WalletType.CASH,
+                        balance = BigDecimal("100000"),
+                        createdAt = System.currentTimeMillis()
+                    )
                 )
-            )
+            }
         }
     }
 }

@@ -1,10 +1,10 @@
 package com.example.catatrapi.di
 
 import android.content.Context
-import androidx.room.Room
 import com.example.catatrapi.data.local.dao.TransactionDao
 import com.example.catatrapi.data.local.dao.WalletDao
 import com.example.catatrapi.data.local.db.CatatRapiDatabase
+import com.example.catatrapi.data.local.db.DatabaseProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,8 +19,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): CatatRapiDatabase =
-        Room.databaseBuilder(context, CatatRapiDatabase::class.java, CatatRapiDatabase.NAME)
-            .build()
+        DatabaseProvider.getDatabase(context)
 
     @Provides
     fun provideWalletDao(db: CatatRapiDatabase): WalletDao = db.walletDao()
