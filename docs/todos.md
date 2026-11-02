@@ -47,28 +47,28 @@ Dokumen ini berisi daftar tugas (*todos*) terstruktur untuk seluruh tahap penger
 
 ### Sprint 2: Core Finance Tracker & Wallet Management (Modul 1)
 #### 2.1 Domain Layer — Wallet & Cashflow
-- [ ] `[P0]` Buat model domain `Wallet`, `WalletType`, `Transaction`, `TransactionType`, dan enum `TransactionCategory` (termasuk `ADMIN_FEE`).
-- [ ] `[P0]` Buat kontrak `WalletRepository` dan `TransactionRepository` di layer Domain, beserta implementasinya di layer Data.
-- [ ] `[P0]` **FT-01:** Implementasi `CreateWalletUseCase`, `UpdateWalletUseCase`, `GetActiveWalletsUseCase`, dan `GetTotalWalletBalanceUseCase` ($W = \sum \text{saldo dompet aktif}$).
-- [ ] `[P0]` **FT-01 & GS-02:** Implementasi `ArchiveWalletUseCase` dengan validasi atomik: tolak pengarsipan bila $W - \text{balance}_{\text{dompet}} < G$ (total alokasi target aktif), dan otomatis jeda `RecurringTransactions` terkait.
-- [ ] `[P0]` **FT-02:** Implementasi `RecordTransactionUseCase` (Pemasukan/Pengeluaran) dalam `@Transaction` Room: validasi $\text{nominal} > 0$, dompet aktif, insert `Transactions`, dan update `Wallets.balance`.
-- [ ] `[P0]` **FT-03 (Rumus 2.2.1):** Implementasi `CalculateSpendableBalanceUseCase`:
+- [x] `[P0]` Buat model domain `Wallet`, `WalletType`, `Transaction`, `TransactionType`, dan enum `TransactionCategory` (termasuk `ADMIN_FEE`).
+- [x] `[P0]` Buat kontrak `WalletRepository` dan `TransactionRepository` di layer Domain, beserta implementasinya di layer Data.
+- [x] `[P0]` **FT-01:** Implementasi `CreateWalletUseCase`, `UpdateWalletUseCase`, `GetActiveWalletsUseCase`, dan `GetTotalWalletBalanceUseCase` ($W = \sum \text{saldo dompet aktif}$).
+- [x] `[P0]` **FT-01 & GS-02:** Implementasi `ArchiveWalletUseCase` dengan validasi atomik: tolak pengarsipan bila $W - \text{balance}_{\text{dompet}} < G$ (total alokasi target aktif), dan otomatis jeda `RecurringTransactions` terkait.
+- [x] `[P0]` **FT-02:** Implementasi `RecordTransactionUseCase` (Pemasukan/Pengeluaran) dalam `@Transaction` Room: validasi $\text{nominal} > 0$, dompet aktif, insert `Transactions`, dan update `Wallets.balance`.
+- [x] `[P0]` **FT-03 (Rumus 2.2.1):** Implementasi `CalculateSpendableBalanceUseCase`:
   - Rumus: $\text{Spendable} = W - G - B_{\min}$.
   - Pertahankan nilai negatif ($\text{Spendable} < 0$) sebagai status peringatan *"alokasi melebihi saldo"*, jangan bulatkan ke nol.
-- [ ] `[P0]` **FT-04:** Implementasi `TransferBetweenWalletsUseCase` dalam `@Transaction`:
+- [x] `[P0]` **FT-04:** Implementasi `TransferBetweenWalletsUseCase` dalam `@Transaction`:
   - Validasi dompet asal $\neq$ tujuan dan $\text{saldo asal} \ge \text{amount} + \text{fee}$.
   - Insert 1 baris `TRANSFER` (dengan `fee`), kurangi dompet asal sebesar `amount + fee`, tambah dompet tujuan sebesar `amount`.
   - Pastikan nominal pokok transfer tidak masuk perhitungan pemasukan/pengeluaran bulanan, sedangkan `fee > 0` dihitung sebagai pengeluaran biaya admin.
-- [ ] `[P1]` **FT-06:** Implementasi `EditTransactionUseCase` dan `DeleteTransactionUseCase`:
+- [x] `[P1]` **FT-06:** Implementasi `EditTransactionUseCase` dan `DeleteTransactionUseCase`:
   - Hitung ulang saldo dompet terkait secara atomik.
   - Blokir penghapusan/pengeditan langsung untuk tipe `INVESTMENT_BUY` dan `INVESTMENT_SELL` dari layar Cashflow (arahkan lewat modul Portofolio).
 
 #### 2.2 UI Layer — Onboarding & Tab 2: Cashflow
-- [ ] `[P0]` Buat alur **Onboarding**: form pembuatan dompet pertama dengan saldo awal $\rightarrow$ opsional buat target pertama $\rightarrow$ masuk ke Dashboard.
-- [ ] `[P0]` Buat kerangka navigasi utama (`MainScaffold`) dengan **Bottom Navigation 4 Tab**: *Dashboard*, *Cashflow*, *Goals & Wealth*, *Analytics*, serta tombol aksi cepat (FAB) **"+ Transaksi"** di Dashboard & Cashflow.
-- [ ] `[P0]` Buat komponen **Carousel Dompet** di Tab Cashflow: tampilkan nama, tipe, saldo per dompet, Total Saldo di atas, serta aksi tambah/arsipkan dompet (**FT-01**).
-- [ ] `[P0]` Buat **Daftar Transaksi** dengan Paging 3 / LazyColumn dikelompokkan per tanggal, fitur pencarian, filter (dompet, kategori, tipe), lencana khusus konversi aset, dan *swipe* untuk edit/hapus (**FT-02, FT-06, NFR-P5**).
-- [ ] `[P0]` Buat **Form Input Transaksi & Transfer** (maksimal 3 ketuk untuk input cepat): validasi *inline* dan tampilkan pratinjau *Spendable Balance* setelah transaksi sebelum tombol simpan ditekan (**FT-02, FT-03, FT-04**).
+- [x] `[P0]` Buat alur **Onboarding**: form pembuatan dompet pertama dengan saldo awal $\rightarrow$ opsional buat target pertama $\rightarrow$ masuk ke Dashboard.
+- [x] `[P0]` Buat kerangka navigasi utama (`MainScaffold`) dengan **Bottom Navigation 4 Tab**: *Dashboard*, *Cashflow*, *Goals & Wealth*, *Analytics*, serta tombol aksi cepat (FAB) **"+ Transaksi"** di Dashboard & Cashflow.
+- [x] `[P0]` Buat komponen **Carousel Dompet** di Tab Cashflow: tampilkan nama, tipe, saldo per dompet, Total Saldo di atas, serta aksi tambah/arsipkan dompet (**FT-01**).
+- [x] `[P0]` Buat **Daftar Transaksi** dengan Paging 3 / LazyColumn dikelompokkan per tanggal, fitur pencarian, filter (dompet, kategori, tipe), lencana khusus konversi aset, dan *swipe* untuk edit/hapus (**FT-02, FT-06, NFR-P5**).
+- [x] `[P0]` Buat **Form Input Transaksi & Transfer** (maksimal 3 ketuk untuk input cepat): validasi *inline* dan tampilkan pratinjau *Spendable Balance* setelah transaksi sebelum tombol simpan ditekan (**FT-02, FT-03, FT-04**).
 
 ---
 
