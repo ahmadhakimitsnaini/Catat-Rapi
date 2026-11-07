@@ -209,6 +209,7 @@ fun MainScaffold(
                     onCreateGoal = goalsViewModel::createGoal,
                     onOpenGoal = { goalId -> navController.navigate(GoalRoutes.detail(goalId)) },
                     onConsumeMessage = goalsViewModel::consumeUserMessage,
+                    onMoveGoalPriority = goalsViewModel::moveGoalPriority,
                 )
             }
 

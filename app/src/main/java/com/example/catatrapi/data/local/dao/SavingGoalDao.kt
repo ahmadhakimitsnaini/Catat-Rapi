@@ -24,13 +24,22 @@ interface SavingGoalDao {
     @Query("UPDATE saving_goals SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: GoalStatus)
 
+    @Query("UPDATE saving_goals SET priority = :priority WHERE id = :id")
+    suspend fun updatePriority(id: Long, priority: Int)
+
+    @Query("SELECT MAX(priority) FROM saving_goals WHERE is_archived = 0")
+    suspend fun getMaxActivePriority(): Int?
+
     @Query("SELECT * FROM saving_goals WHERE id = :id")
     suspend fun getGoalById(id: Long): SavingGoalEntity?
 
     @Query("SELECT * FROM saving_goals WHERE id = :id")
     fun observeGoalById(id: Long): Flow<SavingGoalEntity?>
 
-    @Query("SELECT * FROM saving_goals WHERE is_archived = 0 ORDER BY priority ASC, deadline ASC")
+    @Query("SELECT * FROM saving_goals WHERE is_archived = 0 ORDER BY priority ASC, deadline ASC, id ASC")
+    suspend fun getActiveGoals(): List<SavingGoalEntity>
+
+    @Query("SELECT * FROM saving_goals WHERE is_archived = 0 ORDER BY priority ASC, deadline ASC, id ASC")
     fun observeActiveGoals(): Flow<List<SavingGoalEntity>>
 
     @Query("SELECT * FROM goal_contributions WHERE goal_id = :goalId ORDER BY created_at DESC, id DESC")

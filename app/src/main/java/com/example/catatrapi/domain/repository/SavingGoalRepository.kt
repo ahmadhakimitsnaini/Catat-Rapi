@@ -22,4 +22,7 @@ interface SavingGoalRepository {
 
     /** GS-06. Mengembalikan id kontribusi (bernilai negatif). */
     suspend fun withdrawFromGoalAtomically(goalId: Long, walletId: Long?, amount: BigDecimal, now: Long): Long
+
+    /** GS-07. Mengatur ulang urutan prioritas target aktif (1 = tertinggi) secara atomik. */
+    suspend fun reorderActiveGoalsAtomically(orderedGoalIds: List<Long>)
 }

@@ -74,31 +74,31 @@ Dokumen ini berisi daftar tugas (*todos*) terstruktur untuk seluruh tahap penger
 
 ### Sprint 3: Goal-Based Saving Engine (Modul 2 — Bagian 1)
 #### 3.1 Data & Domain Layer — Saving Goals
-- [ ] `[P0]` Buat entitas `SavingGoalEntity` (`SavingGoals`): `id`, `name`, `target_amount`, `deadline`, `priority`, `status` (`ON_TRACK`, `DELAYED`, `ACHIEVED`), `is_archived`, `created_at`.
-- [ ] `[P0]` Buat entitas `GoalContributionEntity` (`GoalContributions`): `id`, `goal_id` (FK `CASCADE`), `wallet_id` (FK `SET_NULL`), `amount` (positif/negatif), `type` (`DEPOSIT`, `WITHDRAW`, `AUTO_SWEEP`), `created_at` dengan indeks pada `goal_id` (**NFR-P6**).
-- [ ] `[P0]` Buat `SavingGoalDao`: query saldo terkumpul target $S_j = \text{SUM(amount)}$ dari `GoalContributions` dan total alokasi seluruh target aktif $G = \sum S_j$.
-- [ ] `[P0]` **GS-01:** Implementasi `CreateSavingGoalUseCase`: validasi $T > 0$ dan tenggat di masa depan.
-- [ ] `[P0]` **GS-02:** Implementasi `ContributeToGoalUseCase` dalam `@Transaction`:
+- [x] `[P0]` Buat entitas `SavingGoalEntity` (`SavingGoals`): `id`, `name`, `target_amount`, `deadline`, `priority`, `status` (`ON_TRACK`, `DELAYED`, `ACHIEVED`), `is_archived`, `created_at`.
+- [x] `[P0]` Buat entitas `GoalContributionEntity` (`GoalContributions`): `id`, `goal_id` (FK `CASCADE`), `wallet_id` (FK `SET_NULL`), `amount` (positif/negatif), `type` (`DEPOSIT`, `WITHDRAW`, `AUTO_SWEEP`), `created_at` dengan indeks pada `goal_id` (**NFR-P6**).
+- [x] `[P0]` Buat `SavingGoalDao`: query saldo terkumpul target $S_j = \text{SUM(amount)}$ dari `GoalContributions` dan total alokasi seluruh target aktif $G = \sum S_j$.
+- [x] `[P0]` **GS-01:** Implementasi `CreateSavingGoalUseCase`: validasi $T > 0$ dan tenggat di masa depan.
+- [x] `[P0]` **GS-02:** Implementasi `ContributeToGoalUseCase` dalam `@Transaction`:
   - Validasi di dalam transaksi: $\text{nominal setoran} \le \text{Spendable}$.
   - Insert `GoalContributions` (`DEPOSIT`), kurangi *Spendable Balance* (tanpa mengubah Total Saldo $W$), dan hitung ulang status target.
-- [ ] `[P1]` **GS-06:** Implementasi `WithdrawFromGoalUseCase` dalam `@Transaction`:
+- [x] `[P1]` **GS-06:** Implementasi `WithdrawFromGoalUseCase` dalam `@Transaction`:
   - Validasi $\text{nominal tarik} \le S_j$.
   - Insert `GoalContributions` negatif (`WITHDRAW`), kembalikan dana ke *Spendable*, dan hitung ulang status target.
-- [ ] `[P0]` **GS-03 (Rumus 2.2.2):** Implementasi `CalculateDynamicSavingRateUseCase`:
+- [x] `[P0]` **GS-03 (Rumus 2.2.2):** Implementasi `CalculateDynamicSavingRateUseCase`:
   - $D_{\text{sisa}} = \max(1, \ \text{tenggat} - \text{hari ini})$.
   - $R_{\text{harian}} = \max(0, T - S) / D_{\text{sisa}}$ dan $R_{\text{mingguan}} = \max(0, T - S) / \lceil D_{\text{sisa}} / 7 \rceil$.
   - Tangani pembagian nol & ubah status ke `DELAYED` bila tenggat terlewat dan $S < T$.
-- [ ] `[P0]` **Rumus 2.2.3 (Saving Velocity & ETA):** Implementasi `EvaluateGoalStatusUseCase`:
+- [x] `[P0]` **Rumus 2.2.3 (Saving Velocity & ETA):** Implementasi `EvaluateGoalStatusUseCase`:
   - Hitung *Saving Velocity* 30 hari terakhir: $v = \frac{\sum c_k}{\min(30, d_{\text{berjalan}})}$.
   - Jika $S \ge T \rightarrow \text{ACHIEVED}$.
   - Jika $v \le 0$ (belum menabung atau penarikan bersih negatif) $\rightarrow$ ETA tidak terdefinisi dan status `DELAYED`.
   - Jika $S < T$, $v > 0$, dan $\text{ETA} \le \text{tenggat} \rightarrow \text{ON\_TRACK}$ (selain itu `DELAYED`).
 
 #### 3.2 UI Layer — Tab 3: Segmen Goals
-- [ ] `[P0]` Buat layar **Daftar Target (Segmen Goals)**: tampilkan nama, dana terkumpul vs target ($S / T$), *progress bar*, sisa hari, dan badge status (`ON_TRACK`, `DELAYED`, `ACHIEVED`).
-- [ ] `[P0]` Buat layar **Detail Target**: tampilkan *Dynamic Saving Rate* harian & mingguan, *Saving Velocity*, perbandingan ETA vs tenggat, riwayat kontribusi, serta tombol **Setor**, **Tarik**, dan **Auto-Sweep** (**GS-01, GS-02, GS-03, GS-06**).
-- [ ] `[P0]` Buat fitur **Slider Simulasi Dampak** di Detail Target: *"Jika belanja bertambah Rp X"* $\rightarrow$ tampilkan perubahan ETA secara langsung.
-- [ ] `[P2]` **GS-07:** Tambahkan fitur pengaturan urutan prioritas target (*drag-and-drop* / ubah `priority`) untuk menentukan urutan penerima *Auto-Sweep*.
+- [x] `[P0]` Buat layar **Daftar Target (Segmen Goals)**: tampilkan nama, dana terkumpul vs target ($S / T$), *progress bar*, sisa hari, dan badge status (`ON_TRACK`, `DELAYED`, `ACHIEVED`).
+- [x] `[P0]` Buat layar **Detail Target**: tampilkan *Dynamic Saving Rate* harian & mingguan, *Saving Velocity*, perbandingan ETA vs tenggat, riwayat kontribusi, serta tombol **Setor** dan **Tarik** (**GS-01, GS-02, GS-03, GS-06**; tombol **Auto-Sweep** akan diaktifkan bersama `AutoSweepSurplusUseCase` di Sprint 4.1).
+- [x] `[P0]` Buat fitur **Slider Simulasi Dampak** di Detail Target: *"Jika belanja bertambah Rp X"* $\rightarrow$ tampilkan perubahan ETA secara langsung.
+- [x] `[P2]` **GS-07:** Tambahkan fitur pengaturan urutan prioritas target (ubah `priority` naik/turun) untuk menentukan urutan penerima *Auto-Sweep*.
 
 ---
 
@@ -132,7 +132,7 @@ Dokumen ini berisi daftar tugas (*todos*) terstruktur untuk seluruh tahap penger
 ### Sprint 5: Struktur Portofolio & Harga Manual (Modul 3 — Bagian 1)
 - [ ] `[P0]` Buat entitas `PortfolioEntity` (`Portfolios`): `id`, `asset_type` (`STOCK`, `MUTUAL_FUND`, `GOLD`, `CRYPTO`), `symbol` (unik bersama `asset_type`), `name`, `unit` (`lot`, `unit`, `gram`, `koin`), `quantity` (`BigDecimal`), `avg_buy_price` (`BigDecimal`), `last_price`, `last_price_at`, `price_source` (`MANUAL` / `API`).
 - [ ] `[P0]` Buat entitas `InvestmentLogEntity` (`InvestmentLogs`): `id`, `portfolio_id` (FK `RESTRICT`), `wallet_id` (FK `RESTRICT`), `transaction_id` (FK unik $\rightarrow$ `Transactions.id`), `type` (`BUY` / `SELL`), `quantity`, `price`, `fee`, `realized_pl`, `created_at` dengan indeks pada `portfolio_id` (**NFR-P6**).
-- [ ] `[P0]` Buat migrasi database Room (`MIGRATION_1_2`) beserta pengujian `MigrationTestHelper` (**NFR-R2**).
+- [ ] `[P0]` Buat migrasi database Room (`MIGRATION_2_3`, melanjutkan `MIGRATION_1_2` dari Sprint 3) beserta pengujian `MigrationTestHelper` (**NFR-R2**).
 - [ ] `[P0]` **IV-01:** Implementasi `AddPortfolioAssetUseCase` dan daftar posisi portofolio dengan dukungan kuantitas desimal (`BigDecimal`).
 - [ ] `[P1]` **IV-06:** Implementasi `UpdateManualAssetPriceUseCase` untuk memperbarui `last_price`, `last_price_at`, dan menandai `price_source = MANUAL`.
 
