@@ -38,7 +38,7 @@ android {
     }
     sourceSets {
         getByName("androidTest") {
-            assets.srcDir("$projectDir/schemas")
+            assets.directories.add("$projectDir/schemas")
         }
     }
 }
@@ -95,8 +95,6 @@ dependencies {
     implementation("${libs.sqlcipher.android.get()}@aar") // suffix @aar wajib untuk SQLCipher
     implementation(libs.androidx.sqlite.ktx)
     implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Testing
     testImplementation(libs.junit)

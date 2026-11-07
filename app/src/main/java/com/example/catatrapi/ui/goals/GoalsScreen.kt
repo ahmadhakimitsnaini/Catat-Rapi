@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
@@ -42,6 +42,7 @@ fun GoalsScreen(
     onCreateGoal: (name: String, targetAmount: BigDecimal, deadline: Long) -> Unit,
     onOpenGoal: (goalId: Long) -> Unit,
     onConsumeMessage: () -> Unit,
+    onMoveGoalPriority: (goalId: Long, moveUp: Boolean) -> Unit = { _, _ -> },
 ) {
     var showForm by remember { mutableStateOf(false) }
 
@@ -101,10 +102,22 @@ fun GoalsScreen(
                 contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(uiState.items, key = { it.goal.id }) { item ->
+                val totalCount = uiState.items.size
+                itemsIndexed(uiState.items, key = { _, item -> item.goal.id }) { index, item ->
                     GoalCard(
                         item = item,
                         onClick = { onOpenGoal(item.goal.id) },
+                        priorityRank = index + 1,
+                        onMoveUp = if (totalCount > 1 && index > 0) {
+                            { onMoveGoalPriority(item.goal.id, true) }
+                        } else {
+                            null
+                        },
+                        onMoveDown = if (totalCount > 1 && index < totalCount - 1) {
+                            { onMoveGoalPriority(item.goal.id, false) }
+                        } else {
+                            null
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }

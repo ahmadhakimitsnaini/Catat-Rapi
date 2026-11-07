@@ -77,10 +77,16 @@ class SavingGoalRepositoryImpl @Inject constructor(
             if (goal.deadline <= goal.createdAt) {
                 throw DomainException.InvalidSavingGoalException("Tenggat waktu harus berada di masa depan.")
             }
+            val resolvedPriority = if (goal.priority > 0) {
+                goal.priority
+            } else {
+                (savingGoalDao.getMaxActivePriority()?.coerceAtLeast(0) ?: 0) + 1
+            }
             savingGoalDao.insertGoal(
                 goal.copy(
                     id = 0,
                     name = name,
+                    priority = resolvedPriority,
                     status = GoalStatus.ON_TRACK,
                     isArchived = false,
                 ).toEntity()
@@ -174,6 +180,29 @@ class SavingGoalRepositoryImpl @Inject constructor(
             )
             refreshGoalStatus(goal, now)
             contributionId
+        }
+    }
+
+    override suspend fun reorderActiveGoalsAtomically(orderedGoalIds: List<Long>) {
+        database.withTransaction {
+            val activeGoals = savingGoalDao.getActiveGoals()
+            if (activeGoals.isEmpty()) return@withTransaction
+
+            val activeById = activeGoals.associateBy { it.id }
+            val orderedEntities = buildList {
+                orderedGoalIds.distinct().forEach { id ->
+                    activeById[id]?.let { add(it) }
+                }
+                activeGoals.forEach { goal ->
+                    if (none { it.id == goal.id }) add(goal)
+                }
+            }
+            orderedEntities.forEachIndexed { index, entity ->
+                val newPriority = index + 1
+                if (entity.priority != newPriority) {
+                    savingGoalDao.updatePriority(entity.id, newPriority)
+                }
+            }
         }
     }
 
