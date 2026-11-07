@@ -1,6 +1,7 @@
 package com.example.catatrapi.di
 
 import android.content.Context
+import com.example.catatrapi.data.local.dao.SavingGoalDao
 import com.example.catatrapi.data.local.dao.TransactionDao
 import com.example.catatrapi.data.local.dao.WalletDao
 import com.example.catatrapi.data.local.db.CatatRapiDatabase
@@ -15,15 +16,8 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-
-    @Provides
-    @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): CatatRapiDatabase =
-        DatabaseProvider.getDatabase(context)
-
-    @Provides
-    fun provideWalletDao(db: CatatRapiDatabase): WalletDao = db.walletDao()
-
-    @Provides
-    fun provideTransactionDao(db: CatatRapiDatabase): TransactionDao = db.transactionDao()
+    @Provides @Singleton fun provideDatabase(@ApplicationContext context: Context): CatatRapiDatabase = DatabaseProvider.getDatabase(context)
+    @Provides fun provideWalletDao(db: CatatRapiDatabase): WalletDao = db.walletDao()
+    @Provides fun provideTransactionDao(db: CatatRapiDatabase): TransactionDao = db.transactionDao()
+    @Provides fun provideSavingGoalDao(db: CatatRapiDatabase): SavingGoalDao = db.savingGoalDao()
 }
