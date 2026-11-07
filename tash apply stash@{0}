@@ -1,0 +1,15 @@
+ .../example/catatrapi/ui/goals/GoalAmountSheet.kt  | 220 [32m+++++++++++++[m
+ .../com/example/catatrapi/ui/goals/GoalCard.kt     |  86 [32m+++++[m
+ .../example/catatrapi/ui/goals/GoalDetailScreen.kt | 356 [32m+++++++++++++++++++++[m
+ .../catatrapi/ui/goals/GoalDetailViewModel.kt      | 126 [32m++++++++[m
+ .../example/catatrapi/ui/goals/GoalFormSheet.kt    | 184 [32m+++++++++++[m
+ .../catatrapi/ui/goals/GoalImpactSimulation.kt     |  81 [32m+++++[m
+ .../com/example/catatrapi/ui/goals/GoalRoutes.kt   |  12 [32m+[m
+ .../example/catatrapi/ui/goals/GoalStatusBadge.kt  |  56 [32m++++[m
+ .../com/example/catatrapi/ui/goals/GoalUiFormat.kt |  40 [32m+++[m
+ .../com/example/catatrapi/ui/goals/GoalsScreen.kt  | 152 [32m+++++++++[m
+ .../example/catatrapi/ui/goals/GoalsViewModel.kt   | 103 [32m++++++[m
+ .../catatrapi/ui/goals/ImpactSimulatorCard.kt      | 126 [32m++++++++[m
+ .../catatrapi/ui/navigation/MainScaffold.kt        |  49 [32m++[m[31m-[m
+ .../catatrapi/ui/goals/GoalImpactSimulationTest.kt | 135 [32m++++++++[m
+ 14 files changed, 1720 insertions(+), 6 deletions(-)

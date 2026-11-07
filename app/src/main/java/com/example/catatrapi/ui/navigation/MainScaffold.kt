@@ -34,10 +34,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.catatrapi.domain.model.Transaction
 import com.example.catatrapi.ui.cashflow.CashflowScreen
@@ -45,6 +47,11 @@ import com.example.catatrapi.ui.cashflow.CashflowUiState
 import com.example.catatrapi.ui.cashflow.CashflowViewModel
 import com.example.catatrapi.ui.cashflow.TransactionFormSheet
 import com.example.catatrapi.ui.components.CurrencyFormatter
+import com.example.catatrapi.ui.goals.GoalDetailScreen
+import com.example.catatrapi.ui.goals.GoalDetailViewModel
+import com.example.catatrapi.ui.goals.GoalRoutes
+import com.example.catatrapi.ui.goals.GoalsScreen
+import com.example.catatrapi.ui.goals.GoalsViewModel
 import com.example.catatrapi.ui.onboarding.OnboardingScreen
 
 @Composable
@@ -93,14 +100,18 @@ fun MainScaffold(
     var showTransactionSheet by remember { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
 
-    val activeTab = MainTab.entries.firstOrNull { it.route == currentRoute } ?: MainTab.CASHFLOW
+    // Rute anak (misalnya "goals_wealth/goal/{goalId}") dipetakan ke tab induknya lewat awalan,
+    // sehingga tab Goals tetap tersorot dan FAB "+ Transaksi" (showQuickTransactionFab = false) tersembunyi.
+    val activeTab = MainTab.entries.firstOrNull {
+        currentRoute == it.route || currentRoute.startsWith(it.route + "/")
+    } ?: MainTab.CASHFLOW
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             NavigationBar {
                 MainTab.entries.forEach { tab ->
-                    val selected = currentRoute == tab.route
+                    val selected = activeTab == tab
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
@@ -112,6 +123,9 @@ fun MainScaffold(
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                            } else if (currentRoute != tab.route) {
+                                // Sedang di rute anak tab ini (mis. Detail Target): kembali ke daftar.
+                                navController.popBackStack(tab.route, inclusive = false)
                             }
                         },
                         icon = {
@@ -187,9 +201,32 @@ fun MainScaffold(
             }
 
             composable(MainTab.GOALS_WEALTH.route) {
-                UpcomingModulePlaceholder(
-                    title = "Goals & Wealth",
-                    description = "Segmen Tabungan Target (Sprint 3) dan Portofolio Investasi (Sprint 5–6) akan tersedia pada fase berikutnya.",
+                val goalsViewModel: GoalsViewModel = hiltViewModel()
+                val goalsUiState by goalsViewModel.uiState.collectAsStateWithLifecycle()
+                GoalsScreen(
+                    uiState = goalsUiState,
+                    snackbarHostState = snackbarHostState,
+                    onCreateGoal = goalsViewModel::createGoal,
+                    onOpenGoal = { goalId -> navController.navigate(GoalRoutes.detail(goalId)) },
+                    onConsumeMessage = goalsViewModel::consumeUserMessage,
+                )
+            }
+
+            composable(
+                route = GoalRoutes.DETAIL_PATTERN,
+                arguments = listOf(
+                    navArgument(GoalRoutes.GOAL_ID_ARG) { type = NavType.LongType },
+                ),
+            ) {
+                val detailViewModel: GoalDetailViewModel = hiltViewModel()
+                val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
+                GoalDetailScreen(
+                    uiState = detailUiState,
+                    snackbarHostState = snackbarHostState,
+                    onBack = { navController.popBackStack() },
+                    onContribute = detailViewModel::contribute,
+                    onWithdraw = detailViewModel::withdraw,
+                    onConsumeMessage = detailViewModel::consumeUserMessage,
                 )
             }
 
