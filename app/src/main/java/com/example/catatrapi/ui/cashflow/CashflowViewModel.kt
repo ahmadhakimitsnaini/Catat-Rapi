@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.insertSeparators
 import androidx.paging.map
+import com.example.catatrapi.domain.model.CategoryBudgetEvaluation
 import com.example.catatrapi.domain.model.MonthlyCashflowSummary
 import com.example.catatrapi.domain.model.SpendableBalance
 import com.example.catatrapi.domain.model.Transaction
@@ -14,6 +15,7 @@ import com.example.catatrapi.domain.model.TransactionFilter
 import com.example.catatrapi.domain.model.TransactionType
 import com.example.catatrapi.domain.model.Wallet
 import com.example.catatrapi.domain.model.WalletType
+import com.example.catatrapi.domain.repository.CategoryBudgetRepository
 import com.example.catatrapi.domain.repository.TransactionRepository
 import com.example.catatrapi.domain.usecase.ArchiveWalletUseCase
 import com.example.catatrapi.domain.usecase.CalculateMonthlyCashflowSummaryUseCase
@@ -21,7 +23,10 @@ import com.example.catatrapi.domain.usecase.CalculateSpendableBalanceUseCase
 import com.example.catatrapi.domain.usecase.CreateWalletUseCase
 import com.example.catatrapi.domain.usecase.DeleteTransactionUseCase
 import com.example.catatrapi.domain.usecase.EditTransactionUseCase
+import com.example.catatrapi.domain.usecase.EvaluateCategoryBudgetUseCase
+import com.example.catatrapi.domain.usecase.EvaluatePostTransactionAlertsUseCase
 import com.example.catatrapi.domain.usecase.GetActiveWalletsUseCase
+import com.example.catatrapi.domain.usecase.PostTransactionAlertSummary
 import com.example.catatrapi.domain.usecase.RecordTransactionUseCase
 import com.example.catatrapi.domain.usecase.TransferBetweenWalletsUseCase
 import com.example.catatrapi.domain.usecase.UpdateWalletUseCase
@@ -59,6 +64,7 @@ data class CashflowUiState(
     val spendableBalance: SpendableBalance = SpendableBalance(BigDecimal.ZERO),
     val selectedMonth: YearMonth = YearMonth.now(),
     val monthlySummary: MonthlyCashflowSummary = MonthlyCashflowSummary(),
+    val categoryBudgets: List<CategoryBudgetEvaluation> = emptyList(),
     val filter: TransactionFilter = TransactionFilter(),
     val userMessage: String? = null,
 )
@@ -69,6 +75,9 @@ class CashflowViewModel @Inject constructor(
     getActiveWalletsUseCase: GetActiveWalletsUseCase,
     calculateSpendableBalanceUseCase: CalculateSpendableBalanceUseCase,
     private val calculateMonthlyCashflowSummaryUseCase: CalculateMonthlyCashflowSummaryUseCase,
+    private val evaluateCategoryBudgetUseCase: EvaluateCategoryBudgetUseCase,
+    private val evaluatePostTransactionAlertsUseCase: EvaluatePostTransactionAlertsUseCase,
+    private val categoryBudgetRepository: CategoryBudgetRepository,
     private val transactionRepository: TransactionRepository,
     private val createWalletUseCase: CreateWalletUseCase,
     private val updateWalletUseCase: UpdateWalletUseCase,
@@ -92,18 +101,32 @@ class CashflowViewModel @Inject constructor(
             calculateMonthlyCashflowSummaryUseCase(startMillis, endMillis)
         }
 
+    private val categoryBudgetsFlow: Flow<List<CategoryBudgetEvaluation>> =
+        selectedMonthFlow.flatMapLatest { ym ->
+            evaluateCategoryBudgetUseCase.observeForMonth(ym)
+        }
+
+    private val filterAndMessageAndBudgetsFlow = combine(
+        filterFlow,
+        userMessageFlow,
+        categoryBudgetsFlow,
+    ) { filter, msg, budgets ->
+        Triple(filter, msg, budgets)
+    }
+
     val uiState: StateFlow<CashflowUiState> = combine(
         getActiveWalletsUseCase(),
         calculateSpendableBalanceUseCase(),
         selectedMonthFlow,
         monthlySummaryFlow,
-        combine(filterFlow, userMessageFlow) { f, msg -> f to msg },
-    ) { wallets, spendable, month, summary, (filter, message) ->
+        filterAndMessageAndBudgetsFlow,
+    ) { wallets, spendable, month, summary, (filter, message, budgets) ->
         CashflowUiState(
             wallets = wallets,
             spendableBalance = spendable,
             selectedMonth = month,
             monthlySummary = summary,
+            categoryBudgets = budgets,
             filter = filter,
             userMessage = message,
         )
@@ -188,6 +211,36 @@ class CashflowViewModel @Inject constructor(
         userMessageFlow.value = null
     }
 
+    fun upsertCategoryBudget(category: TransactionCategory, limitAmount: BigDecimal) {
+        val targetMonth = selectedMonthFlow.value
+        viewModelScope.launch {
+            runCatching {
+                categoryBudgetRepository.upsertBudget(
+                    category = category,
+                    yearMonth = targetMonth.toString(),
+                    limitAmount = limitAmount,
+                )
+                evaluateCategoryBudgetUseCase.evaluateAndPersistFlagsForMonth(targetMonth)
+            }.onSuccess {
+                userMessageFlow.value = "Anggaran ${category.labelId} berhasil disimpan."
+            }.onFailure { err ->
+                userMessageFlow.value = err.message ?: "Gagal menyimpan anggaran kategori."
+            }
+        }
+    }
+
+    fun deleteCategoryBudget(budgetId: Long) {
+        viewModelScope.launch {
+            runCatching {
+                categoryBudgetRepository.deleteBudget(budgetId)
+            }.onSuccess {
+                userMessageFlow.value = "Batas anggaran kategori dihapus."
+            }.onFailure { err ->
+                userMessageFlow.value = err.message ?: "Gagal menghapus anggaran kategori."
+            }
+        }
+    }
+
     fun createWallet(name: String, type: WalletType, initialBalance: BigDecimal) {
         viewModelScope.launch {
             runCatching {
@@ -234,6 +287,7 @@ class CashflowViewModel @Inject constructor(
         category: TransactionCategory,
         note: String?,
     ) {
+        val now = System.currentTimeMillis()
         viewModelScope.launch {
             runCatching {
                 recordTransactionUseCase(
@@ -242,9 +296,20 @@ class CashflowViewModel @Inject constructor(
                     amount = amount,
                     category = category,
                     note = note,
+                    occurredAt = now,
+                    createdAt = now,
                 )
             }.onSuccess {
-                userMessageFlow.value = "Transaksi berhasil disimpan."
+                val alertSummary = if (type == TransactionType.EXPENSE) {
+                    runCatching { evaluatePostTransactionAlertsUseCase(occurredAtMillis = now, nowMillis = now) }
+                        .getOrNull()
+                } else {
+                    null
+                }
+                userMessageFlow.value = buildTransactionSavedMessage(
+                    baseMessage = "Transaksi berhasil disimpan.",
+                    alertSummary = alertSummary,
+                )
             }.onFailure { err ->
                 userMessageFlow.value = err.message ?: "Gagal menyimpan transaksi."
             }
@@ -258,6 +323,7 @@ class CashflowViewModel @Inject constructor(
         fee: BigDecimal,
         note: String?,
     ) {
+        val now = System.currentTimeMillis()
         viewModelScope.launch {
             runCatching {
                 transferBetweenWalletsUseCase(
@@ -266,9 +332,20 @@ class CashflowViewModel @Inject constructor(
                     amount = amount,
                     fee = fee,
                     note = note,
+                    occurredAt = now,
+                    createdAt = now,
                 )
             }.onSuccess {
-                userMessageFlow.value = "Transfer antar dompet berhasil."
+                val alertSummary = if (fee.signum() > 0) {
+                    runCatching { evaluatePostTransactionAlertsUseCase(occurredAtMillis = now, nowMillis = now) }
+                        .getOrNull()
+                } else {
+                    null
+                }
+                userMessageFlow.value = buildTransactionSavedMessage(
+                    baseMessage = "Transfer antar dompet berhasil.",
+                    alertSummary = alertSummary,
+                )
             }.onFailure { err ->
                 userMessageFlow.value = err.message ?: "Gagal melakukan transfer."
             }
@@ -280,7 +357,18 @@ class CashflowViewModel @Inject constructor(
             runCatching {
                 editTransactionUseCase(updated)
             }.onSuccess {
-                userMessageFlow.value = "Transaksi berhasil diperbarui."
+                val alertSummary = if (updated.type == TransactionType.EXPENSE ||
+                    (updated.type == TransactionType.TRANSFER && updated.fee.signum() > 0)
+                ) {
+                    runCatching { evaluatePostTransactionAlertsUseCase(occurredAtMillis = updated.occurredAt) }
+                        .getOrNull()
+                } else {
+                    null
+                }
+                userMessageFlow.value = buildTransactionSavedMessage(
+                    baseMessage = "Transaksi berhasil diperbarui.",
+                    alertSummary = alertSummary,
+                )
             }.onFailure { err ->
                 userMessageFlow.value = err.message ?: "Gagal memperbarui transaksi."
             }
@@ -295,6 +383,24 @@ class CashflowViewModel @Inject constructor(
                 userMessageFlow.value = "Transaksi berhasil dihapus dan saldo dompet telah disesuaikan."
             }.onFailure { err ->
                 userMessageFlow.value = err.message ?: "Transaksi tidak dapat dihapus."
+            }
+        }
+    }
+
+    private fun buildTransactionSavedMessage(
+        baseMessage: String,
+        alertSummary: PostTransactionAlertSummary?,
+    ): String {
+        if (alertSummary == null) return baseMessage
+        val budgetAlert = alertSummary.triggeredBudgets.firstOrNull()
+        val impactAlert = alertSummary.highPriorityImpactWarnings.firstOrNull()
+        return buildString {
+            append(baseMessage)
+            if (budgetAlert != null) {
+                append(" Peringatan: Anggaran ${budgetAlert.budget.category.labelId} mencapai ${budgetAlert.usagePercentage}%!")
+            }
+            if (impactAlert != null) {
+                append(" Target \"${impactAlert.goalName}\" mundur ${impactAlert.delayDays} hari (Tertunda)!")
             }
         }
     }

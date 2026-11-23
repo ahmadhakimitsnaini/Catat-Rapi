@@ -3,15 +3,10 @@ package com.example.catatrapi.ui.navigation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -19,13 +14,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,17 +40,22 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.catatrapi.domain.model.Transaction
+import com.example.catatrapi.domain.model.TransactionType
 import com.example.catatrapi.ui.cashflow.CashflowScreen
-import com.example.catatrapi.ui.cashflow.CashflowUiState
 import com.example.catatrapi.ui.cashflow.CashflowViewModel
 import com.example.catatrapi.ui.cashflow.TransactionFormSheet
-import com.example.catatrapi.ui.components.CurrencyFormatter
+import com.example.catatrapi.ui.dashboard.DashboardScreen
+import com.example.catatrapi.ui.dashboard.DashboardViewModel
 import com.example.catatrapi.ui.goals.GoalDetailScreen
 import com.example.catatrapi.ui.goals.GoalDetailViewModel
 import com.example.catatrapi.ui.goals.GoalRoutes
 import com.example.catatrapi.ui.goals.GoalsScreen
 import com.example.catatrapi.ui.goals.GoalsViewModel
 import com.example.catatrapi.ui.onboarding.OnboardingScreen
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+
+private const val AUTO_SWEEP_UNDO_TIMEOUT_MS = 10_000L
 
 @Composable
 fun CatatRapiAppRoot(
@@ -88,23 +91,59 @@ fun CatatRapiAppRoot(
 @Composable
 fun MainScaffold(
     cashflowViewModel: CashflowViewModel = hiltViewModel(),
+    dashboardViewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: MainTab.CASHFLOW.route
+    val currentRoute = navBackStackEntry?.destination?.route ?: MainTab.DASHBOARD.route
 
     val cashflowUiState by cashflowViewModel.uiState.collectAsStateWithLifecycle()
+    val dashboardUiState by dashboardViewModel.uiState.collectAsStateWithLifecycle()
     val pagedTransactions = cashflowViewModel.pagedTransactions.collectAsLazyPagingItems()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     var showTransactionSheet by remember { mutableStateOf(false) }
+    var initialTransactionType by remember { mutableStateOf<TransactionType?>(null) }
     var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
 
-    // Rute anak (misalnya "goals_wealth/goal/{goalId}") dipetakan ke tab induknya lewat awalan,
-    // sehingga tab Goals tetap tersorot dan FAB "+ Transaksi" (showQuickTransactionFab = false) tersembunyi.
+    // GS-05: Mekanisme Snackbar Undo selama 10 detik pada scope MainScaffold agar tidak putus saat berpindah tab
+    fun showAutoSweepUndoSnackbar(
+        message: String,
+        contributionIds: List<Long>,
+        onUndo: (List<Long>) -> Unit,
+    ) {
+        coroutineScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = withTimeoutOrNull(AUTO_SWEEP_UNDO_TIMEOUT_MS) {
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    actionLabel = "Urungkan",
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Indefinite,
+                )
+            }
+            if (result == SnackbarResult.ActionPerformed) {
+                onUndo(contributionIds)
+            } else {
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
+        }
+    }
+
+    fun navigateToTopLevelTab(tab: MainTab) {
+        navController.navigate(tab.route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     val activeTab = MainTab.entries.firstOrNull {
         currentRoute == it.route || currentRoute.startsWith(it.route + "/")
-    } ?: MainTab.CASHFLOW
+    } ?: MainTab.DASHBOARD
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -116,15 +155,8 @@ fun MainScaffold(
                         selected = selected,
                         onClick = {
                             if (!selected) {
-                                navController.navigate(tab.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                                navigateToTopLevelTab(tab)
                             } else if (currentRoute != tab.route) {
-                                // Sedang di rute anak tab ini (mis. Detail Target): kembali ke daftar.
                                 navController.popBackStack(tab.route, inclusive = false)
                             }
                         },
@@ -144,6 +176,7 @@ fun MainScaffold(
                 ExtendedFloatingActionButton(
                     onClick = {
                         editingTransaction = null
+                        initialTransactionType = null
                         showTransactionSheet = true
                     },
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
@@ -154,21 +187,44 @@ fun MainScaffold(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = MainTab.CASHFLOW.route,
+            startDestination = MainTab.DASHBOARD.route,
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(MainTab.DASHBOARD.route) {
-                DashboardPreviewTab(
-                    uiState = cashflowUiState,
-                    onGoToCashflow = {
-                        navController.navigate(MainTab.CASHFLOW.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
+                DashboardScreen(
+                    uiState = dashboardUiState,
+                    snackbarHostState = snackbarHostState,
+                    onOpenGoalDetail = { goalId ->
+                        navController.navigate(GoalRoutes.detail(goalId))
+                    },
+                    onOpenGoalsTab = { navigateToTopLevelTab(MainTab.GOALS_WEALTH) },
+                    onOpenCashflowTab = { navigateToTopLevelTab(MainTab.CASHFLOW) },
+                    onQuickTransferClick = {
+                        editingTransaction = null
+                        initialTransactionType = TransactionType.TRANSFER
+                        showTransactionSheet = true
+                    },
+                    onEditTransactionClick = { tx ->
+                        if (tx.isInvestmentTransaction) {
+                            cashflowViewModel.deleteTransaction(tx)
+                        } else {
+                            editingTransaction = tx
+                            initialTransactionType = null
+                            showTransactionSheet = true
                         }
                     },
+                    onExecuteAutoSweep = {
+                        dashboardViewModel.executeAutoSweep { msg, ids ->
+                            showAutoSweepUndoSnackbar(
+                                message = msg,
+                                contributionIds = ids,
+                                onUndo = dashboardViewModel::undoAutoSweep,
+                            )
+                        }
+                    },
+                    onDismissImpactBanner = dashboardViewModel::dismissImpactBanner,
+                    onSaveFinancialSettings = dashboardViewModel::saveFinancialSettings,
+                    onConsumeMessage = dashboardViewModel::consumeUserMessage,
                 )
             }
 
@@ -189,13 +245,16 @@ fun MainScaffold(
                     onArchiveWallet = cashflowViewModel::archiveWallet,
                     onEditTransactionRequest = { tx ->
                         if (tx.isInvestmentTransaction) {
-                            cashflowViewModel.deleteTransaction(tx) // Memicu pesan ImmutableInvestmentTransactionException
+                            cashflowViewModel.deleteTransaction(tx)
                         } else {
                             editingTransaction = tx
+                            initialTransactionType = null
                             showTransactionSheet = true
                         }
                     },
                     onDeleteTransaction = cashflowViewModel::deleteTransaction,
+                    onUpsertCategoryBudget = cashflowViewModel::upsertCategoryBudget,
+                    onDeleteCategoryBudget = cashflowViewModel::deleteCategoryBudget,
                     onConsumeMessage = cashflowViewModel::consumeUserMessage,
                 )
             }
@@ -227,6 +286,15 @@ fun MainScaffold(
                     onBack = { navController.popBackStack() },
                     onContribute = detailViewModel::contribute,
                     onWithdraw = detailViewModel::withdraw,
+                    onAutoSweep = {
+                        detailViewModel.executeAutoSweep { msg, ids ->
+                            showAutoSweepUndoSnackbar(
+                                message = msg,
+                                contributionIds = ids,
+                                onUndo = detailViewModel::undoAutoSweep,
+                            )
+                        }
+                    },
                     onConsumeMessage = detailViewModel::consumeUserMessage,
                 )
             }
@@ -245,13 +313,16 @@ fun MainScaffold(
             wallets = cashflowUiState.wallets,
             currentSpendable = cashflowUiState.spendableBalance,
             initialWalletId = cashflowUiState.filter.walletId,
+            initialType = initialTransactionType,
             editingTransaction = editingTransaction,
             onDismiss = {
                 showTransactionSheet = false
                 editingTransaction = null
+                initialTransactionType = null
             },
             onSaveIncomeOrExpense = { walletId, type, amount, category, note ->
                 showTransactionSheet = false
+                initialTransactionType = null
                 cashflowViewModel.recordIncomeOrExpense(
                     walletId = walletId,
                     type = type,
@@ -262,6 +333,7 @@ fun MainScaffold(
             },
             onSaveTransfer = { fromId, toId, amount, fee, note ->
                 showTransactionSheet = false
+                initialTransactionType = null
                 cashflowViewModel.transferBetweenWallets(
                     fromWalletId = fromId,
                     toWalletId = toId,
@@ -273,94 +345,10 @@ fun MainScaffold(
             onSaveEdit = { updated ->
                 showTransactionSheet = false
                 editingTransaction = null
+                initialTransactionType = null
                 cashflowViewModel.editTransaction(updated)
             },
         )
-    }
-}
-
-@Composable
-private fun DashboardPreviewTab(
-    uiState: CashflowUiState,
-    onGoToCashflow: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = "Beranda CatatRapi",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
-                        Text(
-                            text = "Total Saldo Dompet (W)",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        Text(
-                            text = CurrencyFormatter.format(uiState.spendableBalance.totalWalletBalance),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "Spendable Balance",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        Text(
-                            text = CurrencyFormatter.format(uiState.spendableBalance.spendableAmount),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = if (uiState.spendableBalance.isOverAllocated) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = "Kelola Dompet & Riwayat Arus Kas",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "Anda memiliki ${uiState.wallets.size} dompet aktif. Gunakan tombol '+ Transaksi' di kanan bawah untuk mencatat pemasukan, pengeluaran, atau transfer dalam 3 ketuk.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(onClick = onGoToCashflow) {
-                    Text("Buka Tab Cashflow")
-                }
-            }
-        }
     }
 }
 
