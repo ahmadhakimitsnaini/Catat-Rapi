@@ -66,4 +66,7 @@ interface SavingGoalDao {
         """
     )
     fun observeActiveGoalContributions(): Flow<List<GoalContributionEntity>>
+
+    @Query("DELETE FROM goal_contributions WHERE id IN (:ids)")
+    suspend fun deleteContributionsByIds(ids: List<Long>)
 }

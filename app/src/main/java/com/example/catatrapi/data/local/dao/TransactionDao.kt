@@ -61,4 +61,19 @@ interface TransactionDao {
                 "WHERE occurred_at BETWEEN :from AND :to ORDER BY occurred_at DESC"
     )
     fun observeInRange(from: Long, to: Long): Flow<List<TransactionEntity>>
+
+    @Query(
+        "SELECT * FROM transactions " +
+                "WHERE occurred_at BETWEEN :from AND :to ORDER BY occurred_at DESC"
+    )
+    suspend fun getInRange(from: Long, to: Long): List<TransactionEntity>
+
+    @Query("SELECT MIN(occurred_at) FROM transactions")
+    fun observeEarliestTransactionTimestamp(): Flow<Long?>
+
+    @Query("SELECT MIN(occurred_at) FROM transactions")
+    suspend fun getEarliestTransactionTimestamp(): Long?
+
+    @Query("SELECT * FROM transactions ORDER BY occurred_at DESC, id DESC LIMIT :limit")
+    fun observeRecent(limit: Int = 5): Flow<List<TransactionEntity>>
 }

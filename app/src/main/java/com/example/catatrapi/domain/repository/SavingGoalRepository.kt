@@ -1,5 +1,6 @@
 package com.example.catatrapi.domain.repository
 
+import com.example.catatrapi.domain.model.AutoSweepExecutionResult
 import com.example.catatrapi.domain.model.GoalContribution
 import com.example.catatrapi.domain.model.SavingGoal
 import com.example.catatrapi.domain.model.SavingGoalProgress
@@ -8,6 +9,9 @@ import java.math.BigDecimal
 
 interface SavingGoalRepository {
     fun observeActiveGoalsWithProgress(): Flow<List<SavingGoalProgress>>
+    fun observeActiveGoalContributions(): Flow<List<GoalContribution>>
+    suspend fun getActiveGoalsWithProgress(): List<SavingGoalProgress>
+    suspend fun getActiveGoalContributions(): List<GoalContribution>
     fun observeGoalById(id: Long): Flow<SavingGoal?>
     fun observeContributions(goalId: Long): Flow<List<GoalContribution>>
     fun observeSavedAmount(goalId: Long): Flow<BigDecimal>
@@ -25,4 +29,16 @@ interface SavingGoalRepository {
 
     /** GS-07. Mengatur ulang urutan prioritas target aktif (1 = tertinggi) secara atomik. */
     suspend fun reorderActiveGoalsAtomically(orderedGoalIds: List<Long>)
+
+    /** GS-05. Mengalokasikan surplus Spendable - [sweepBuffer] secara atomik ke target aktif sesuai prioritas. */
+    suspend fun autoSweepSurplusAtomically(
+        sweepBuffer: BigDecimal,
+        now: Long = System.currentTimeMillis(),
+    ): AutoSweepExecutionResult
+
+    /** GS-05. Membatalkan (Undo) batch kontribusi Auto-Sweep secara atomik dan menghitung ulang status target. */
+    suspend fun undoAutoSweepAtomically(
+        contributionIds: List<Long>,
+        now: Long = System.currentTimeMillis(),
+    )
 }
