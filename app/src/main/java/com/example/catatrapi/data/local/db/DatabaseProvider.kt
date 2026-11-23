@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.catatrapi.data.local.security.DatabasePassphraseManager
+import com.example.catatrapi.data.local.security.KeystoreCryptoManager
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 object DatabaseProvider {
     @Volatile private var INSTANCE: CatatRapiDatabase? = null
@@ -38,16 +41,50 @@ object DatabaseProvider {
         }
     }
 
+    /** Sprint 4 (FT-05): Menambah tabel category_budgets dengan indeks unik (category, year_month). */
+    val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `category_budgets` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`category` TEXT NOT NULL, " +
+                        "`year_month` TEXT NOT NULL, " +
+                        "`limit_amount` TEXT NOT NULL, " +
+                        "`notified_80` INTEGER NOT NULL, " +
+                        "`notified_100` INTEGER NOT NULL, " +
+                        "`updated_at` INTEGER NOT NULL)"
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_category_budgets_category_year_month` " +
+                        "ON `category_budgets` (`category`, `year_month`)"
+            )
+        }
+    }
+
     fun getDatabase(context: Context): CatatRapiDatabase {
         return INSTANCE ?: synchronized(this) {
-            INSTANCE ?: Room.databaseBuilder(
-                context.applicationContext,
-                CatatRapiDatabase::class.java,
-                CatatRapiDatabase.NAME
-            )
-                .addMigrations(MIGRATION_1_2)
-                .build()
-                .also { INSTANCE = it }
+            INSTANCE ?: buildEncryptedDatabase(context.applicationContext).also { INSTANCE = it }
         }
+    }
+
+    private fun buildEncryptedDatabase(appContext: Context): CatatRapiDatabase {
+        System.loadLibrary("sqlcipher")
+        val passphraseManager = DatabasePassphraseManager(KeystoreCryptoManager())
+        val passphrase = passphraseManager.getOrCreatePassphrase(appContext)
+        DatabaseEncryptionMigrator.migrateIfPlaintext(
+            context = appContext,
+            dbName = CatatRapiDatabase.NAME,
+            passphrase = passphrase,
+        )
+        // SupportOpenHelperFactory menyalin/memegang referensi byte passphrase untuk membuka koneksi SQLCipher
+        val factory = SupportOpenHelperFactory(passphrase)
+        return Room.databaseBuilder(
+            appContext,
+            CatatRapiDatabase::class.java,
+            CatatRapiDatabase.NAME,
+        )
+            .openHelperFactory(factory)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .build()
     }
 }

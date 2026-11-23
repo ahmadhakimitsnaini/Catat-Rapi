@@ -8,6 +8,7 @@ import com.example.catatrapi.data.local.entity.GoalContributionEntity
 import com.example.catatrapi.data.local.entity.SavingGoalEntity
 import com.example.catatrapi.data.mapper.toDomain
 import com.example.catatrapi.data.mapper.toEntity
+import com.example.catatrapi.domain.model.AutoSweepExecutionResult
 import com.example.catatrapi.domain.model.ContributionType
 import com.example.catatrapi.domain.model.DomainException
 import com.example.catatrapi.domain.model.GoalContribution
@@ -16,15 +17,16 @@ import com.example.catatrapi.domain.model.SavingGoal
 import com.example.catatrapi.domain.model.SavingGoalProgress
 import com.example.catatrapi.domain.repository.FinancialAllocationProvider
 import com.example.catatrapi.domain.repository.SavingGoalRepository
+import com.example.catatrapi.domain.usecase.AutoSweepSurplusUseCase
 import com.example.catatrapi.domain.usecase.CalculateSpendableBalanceUseCase
 import com.example.catatrapi.domain.usecase.EvaluateGoalStatusUseCase
+import java.math.BigDecimal
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import java.math.BigDecimal
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class SavingGoalRepositoryImpl @Inject constructor(
@@ -39,16 +41,20 @@ class SavingGoalRepositoryImpl @Inject constructor(
             savingGoalDao.observeActiveGoals(),
             savingGoalDao.observeActiveGoalContributions(),
         ) { goals, contributions ->
-            val savedByGoal: Map<Long, BigDecimal> = contributions
-                .groupBy { it.goalId }
-                .mapValues { (_, list) -> list.totalAmount() }
-            goals.map { goal ->
-                SavingGoalProgress(
-                    goal = goal.toDomain(),
-                    savedAmount = savedByGoal[goal.id] ?: BigDecimal.ZERO,
-                )
-            }
+            mapGoalsWithProgress(goals, contributions)
         }
+
+    override fun observeActiveGoalContributions(): Flow<List<GoalContribution>> =
+        savingGoalDao.observeActiveGoalContributions().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun getActiveGoalsWithProgress(): List<SavingGoalProgress> =
+        mapGoalsWithProgress(
+            goals = savingGoalDao.getActiveGoals(),
+            contributions = savingGoalDao.getActiveGoalContributions(),
+        )
+
+    override suspend fun getActiveGoalContributions(): List<GoalContribution> =
+        savingGoalDao.getActiveGoalContributions().map { it.toDomain() }
 
     override fun observeGoalById(id: Long): Flow<SavingGoal?> =
         savingGoalDao.observeGoalById(id).map { it?.toDomain() }
@@ -116,13 +122,7 @@ class SavingGoalRepositoryImpl @Inject constructor(
             }
 
             // Spendable = W - G - B_min, dihitung di dalam transaksi.
-            val totalWalletBalance = walletDao.getActiveWallets()
-                .fold(BigDecimal.ZERO) { acc, w -> acc + w.balance }
-            val allocatedGoals = allocationProvider.getTotalAllocatedGoals()
-            val minimumBuffer = allocationProvider.observeMinimumBuffer().first()
-            val spendable = CalculateSpendableBalanceUseCase
-                .calculate(totalWalletBalance, allocatedGoals, minimumBuffer)
-                .spendableAmount
+            val spendable = computeCurrentSpendableInTransaction()
             if (amount > spendable) {
                 throw DomainException.GoalContributionExceedsSpendableException()
             }
@@ -203,6 +203,90 @@ class SavingGoalRepositoryImpl @Inject constructor(
                     savingGoalDao.updatePriority(entity.id, newPriority)
                 }
             }
+        }
+    }
+
+    override suspend fun autoSweepSurplusAtomically(
+        sweepBuffer: BigDecimal,
+        now: Long,
+    ): AutoSweepExecutionResult {
+        return database.withTransaction {
+            val spendable = computeCurrentSpendableInTransaction()
+            val activeGoalEntities = savingGoalDao.getActiveGoals()
+            val activeContributions = savingGoalDao.getActiveGoalContributions()
+            val goalsWithProgress = mapGoalsWithProgress(activeGoalEntities, activeContributions)
+
+            val plan = AutoSweepSurplusUseCase.planAllocations(
+                spendableBalance = spendable,
+                sweepBuffer = sweepBuffer,
+                activeGoals = goalsWithProgress,
+            )
+            if (!plan.canExecute) {
+                throw DomainException.NoAutoSweepSurplusException()
+            }
+
+            val goalById = activeGoalEntities.associateBy { it.id }
+            val insertedIds = mutableListOf<Long>()
+            for (allocation in plan.allocations) {
+                val id = savingGoalDao.insertContribution(
+                    GoalContributionEntity(
+                        goalId = allocation.goalId,
+                        walletId = null,
+                        amount = allocation.allocatedAmount,
+                        type = ContributionType.AUTO_SWEEP,
+                        createdAt = now,
+                    )
+                )
+                insertedIds.add(id)
+                goalById[allocation.goalId]?.let { goalEntity ->
+                    refreshGoalStatus(goalEntity, now)
+                }
+            }
+
+            AutoSweepExecutionResult(
+                contributionIds = insertedIds,
+                totalAllocatedAmount = plan.totalAllocatedAmount,
+                allocations = plan.allocations,
+            )
+        }
+    }
+
+    override suspend fun undoAutoSweepAtomically(
+        contributionIds: List<Long>,
+        now: Long,
+    ) {
+        if (contributionIds.isEmpty()) return
+        database.withTransaction {
+            savingGoalDao.deleteContributionsByIds(contributionIds)
+            val activeGoals = savingGoalDao.getActiveGoals()
+            for (goal in activeGoals) {
+                refreshGoalStatus(goal, now)
+            }
+        }
+    }
+
+    private suspend fun computeCurrentSpendableInTransaction(): BigDecimal {
+        val totalWalletBalance = walletDao.getActiveWallets()
+            .fold(BigDecimal.ZERO) { acc, w -> acc + w.balance }
+        val allocatedGoals = allocationProvider.getTotalAllocatedGoals()
+        val minimumBuffer = allocationProvider.observeMinimumBuffer().first()
+        return CalculateSpendableBalanceUseCase
+            .calculate(totalWalletBalance, allocatedGoals, minimumBuffer)
+            .spendableAmount
+    }
+
+    private fun mapGoalsWithProgress(
+        goals: List<SavingGoalEntity>,
+        contributions: List<GoalContributionEntity>,
+    ): List<SavingGoalProgress> {
+        val savedByGoal: Map<Long, BigDecimal> = contributions
+            .groupBy { it.goalId }
+            .mapValues { (_, list) -> list.totalAmount() }
+        return goals.map { goal ->
+            SavingGoalProgress(
+                goal = goal.toDomain(),
+                savedAmount = savedByGoal[goal.id] ?: BigDecimal.ZERO,
+            )
         }
     }
 

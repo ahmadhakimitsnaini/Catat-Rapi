@@ -54,6 +54,18 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun observeTransactionsInRange(from: Long, to: Long): Flow<List<Transaction>> =
         transactionDao.observeInRange(from, to).map { list -> list.map { it.toDomain() } }
 
+    override suspend fun getTransactionsInRange(from: Long, to: Long): List<Transaction> =
+        transactionDao.getInRange(from, to).map { it.toDomain() }
+
+    override fun observeEarliestTransactionTimestamp(): Flow<Long?> =
+        transactionDao.observeEarliestTransactionTimestamp()
+
+    override suspend fun getEarliestTransactionTimestamp(): Long? =
+        transactionDao.getEarliestTransactionTimestamp()
+
+    override fun observeRecentTransactions(limit: Int): Flow<List<Transaction>> =
+        transactionDao.observeRecent(limit).map { list -> list.map { it.toDomain() } }
+
     override suspend fun getTransactionById(id: Long): Transaction? =
         transactionDao.getById(id)?.toDomain()
 

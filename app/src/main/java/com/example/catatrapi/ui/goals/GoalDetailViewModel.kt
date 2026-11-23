@@ -3,6 +3,7 @@ package com.example.catatrapi.ui.goals
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.catatrapi.domain.model.AutoSweepPlan
 import com.example.catatrapi.domain.model.DynamicSavingRate
 import com.example.catatrapi.domain.model.GoalContribution
 import com.example.catatrapi.domain.model.GoalEvaluation
@@ -12,20 +13,22 @@ import com.example.catatrapi.domain.model.SpendableBalance
 import com.example.catatrapi.domain.model.Wallet
 import com.example.catatrapi.domain.repository.SavingGoalRepository
 import com.example.catatrapi.domain.repository.WalletRepository
+import com.example.catatrapi.domain.usecase.AutoSweepSurplusUseCase
 import com.example.catatrapi.domain.usecase.CalculateDynamicSavingRateUseCase
 import com.example.catatrapi.domain.usecase.CalculateSpendableBalanceUseCase
 import com.example.catatrapi.domain.usecase.ContributeToGoalUseCase
 import com.example.catatrapi.domain.usecase.EvaluateGoalStatusUseCase
 import com.example.catatrapi.domain.usecase.WithdrawFromGoalUseCase
+import com.example.catatrapi.ui.components.CurrencyFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.math.BigDecimal
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
-import javax.inject.Inject
 
 data class GoalDetailUiState(
     val isLoading: Boolean = true,
@@ -38,6 +41,7 @@ data class GoalDetailUiState(
     val contributions: List<GoalContribution> = emptyList(),
     val wallets: List<Wallet> = emptyList(),
     val spendable: SpendableBalance = SpendableBalance(totalWalletBalance = BigDecimal.ZERO),
+    val autoSweepPlan: AutoSweepPlan = AutoSweepPlan(),
     val userMessage: String? = null,
 )
 
@@ -49,6 +53,7 @@ class GoalDetailViewModel @Inject constructor(
     calculateSpendableBalanceUseCase: CalculateSpendableBalanceUseCase,
     private val contributeToGoalUseCase: ContributeToGoalUseCase,
     private val withdrawFromGoalUseCase: WithdrawFromGoalUseCase,
+    private val autoSweepSurplusUseCase: AutoSweepSurplusUseCase,
 ) : ViewModel() {
 
     private val goalId: Long = checkNotNull(savedStateHandle.get<Long>(GoalRoutes.GOAL_ID_ARG)) {
@@ -57,18 +62,24 @@ class GoalDetailViewModel @Inject constructor(
 
     private val userMessageFlow = MutableStateFlow<String?>(null)
 
+    private val sweepAndMessageFlow = combine(
+        autoSweepSurplusUseCase.observePlan(),
+        userMessageFlow,
+    ) { plan, msg -> plan to msg }
+
     val uiState: StateFlow<GoalDetailUiState> = combine(
         savingGoalRepository.observeGoalById(goalId),
         savingGoalRepository.observeContributions(goalId),
         walletRepository.observeActiveWallets(),
         calculateSpendableBalanceUseCase(),
-        userMessageFlow,
-    ) { goal, contributions, wallets, spendable, message ->
+        sweepAndMessageFlow,
+    ) { goal, contributions, wallets, spendable, (sweepPlan, message) ->
         if (goal == null) {
             return@combine GoalDetailUiState(
                 isLoading = false,
                 wallets = wallets,
                 spendable = spendable,
+                autoSweepPlan = sweepPlan,
                 userMessage = message,
             )
         }
@@ -96,6 +107,7 @@ class GoalDetailViewModel @Inject constructor(
             contributions = contributions,
             wallets = wallets,
             spendable = spendable,
+            autoSweepPlan = sweepPlan,
             userMessage = message,
         )
     }.stateIn(
@@ -117,6 +129,37 @@ class GoalDetailViewModel @Inject constructor(
             runCatching { withdrawFromGoalUseCase(goalId = goalId, walletId = null, amount = amount) }
                 .onSuccess { userMessageFlow.value = "Penarikan berhasil dicatat." }
                 .onFailure { err -> userMessageFlow.value = err.message ?: "Penarikan tidak dapat dicatat." }
+        }
+    }
+
+    fun executeAutoSweep(
+        onShowUndoSnackbar: (message: String, contributionIds: List<Long>) -> Unit,
+    ) {
+        viewModelScope.launch {
+            runCatching { autoSweepSurplusUseCase.execute() }
+                .onSuccess { result ->
+                    val formatted = CurrencyFormatter.format(result.totalAllocatedAmount)
+                    onShowUndoSnackbar(
+                        "Auto-Sweep $formatted berhasil dialokasikan ke ${result.allocations.size} target.",
+                        result.contributionIds,
+                    )
+                }
+                .onFailure { err ->
+                    userMessageFlow.value = err.message ?: "Auto-Sweep tidak dapat dijalankan."
+                }
+        }
+    }
+
+    fun undoAutoSweep(contributionIds: List<Long>) {
+        if (contributionIds.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { autoSweepSurplusUseCase.undo(contributionIds) }
+                .onSuccess {
+                    userMessageFlow.value = "Alokasi Auto-Sweep dibatalkan dan dana dikembalikan ke Spendable."
+                }
+                .onFailure { err ->
+                    userMessageFlow.value = err.message ?: "Gagal membatalkan Auto-Sweep."
+                }
         }
     }
 

@@ -64,12 +64,50 @@ class CalculateSpendableBalanceUseCaseTest {
         assertTrue(result.isOverAllocated)
     }
 
+    @Test
+    fun `spendable exactly zero is not marked as over-allocated`() = runTest {
+        val result = CalculateSpendableBalanceUseCase.calculate(
+            totalWalletBalance = BigDecimal("2500000"),
+            allocatedGoalsAmount = BigDecimal("2000000"),
+            minimumBuffer = BigDecimal("500000"),
+        )
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.spendableAmount))
+        assertFalse(result.isOverAllocated)
+    }
+
+    @Test
+    fun `spendable reacts dynamically when minimumBuffer B_min changes`() = runTest {
+        val walletRepo = FakeWalletRepository(
+            listOf(
+                Wallet(id = 1, name = "Mandiri", type = WalletType.BANK, balance = BigDecimal("3000000")),
+            )
+        )
+        val allocationProvider = FakeAllocationProvider(
+            allocatedGoals = BigDecimal("1000000"),
+            minimumBuffer = BigDecimal.ZERO,
+        )
+        val useCase = CalculateSpendableBalanceUseCase(
+            getTotalWalletBalanceUseCase = GetTotalWalletBalanceUseCase(walletRepo),
+            allocationProvider = allocationProvider,
+        )
+
+        assertEquals(BigDecimal("2000000"), useCase().first().spendableAmount)
+
+        allocationProvider.updateBuffer(BigDecimal("750000"))
+        assertEquals(BigDecimal("1250000"), useCase().first().spendableAmount)
+    }
+
     private class FakeAllocationProvider(
         allocatedGoals: BigDecimal,
         minimumBuffer: BigDecimal,
     ) : FinancialAllocationProvider {
         private val goalsFlow = MutableStateFlow(allocatedGoals)
         private val bufferFlow = MutableStateFlow(minimumBuffer)
+
+        fun updateBuffer(newBuffer: BigDecimal) {
+            bufferFlow.value = newBuffer
+        }
 
         override fun observeTotalAllocatedGoals(): Flow<BigDecimal> = goalsFlow
         override suspend fun getTotalAllocatedGoals(): BigDecimal = goalsFlow.value

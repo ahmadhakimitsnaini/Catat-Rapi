@@ -8,6 +8,10 @@ import kotlinx.coroutines.flow.Flow
 interface TransactionRepository {
     fun observePagedTransactions(filter: TransactionFilter): Flow<PagingData<Transaction>>
     fun observeTransactionsInRange(from: Long, to: Long): Flow<List<Transaction>>
+    suspend fun getTransactionsInRange(from: Long, to: Long): List<Transaction>
+    fun observeEarliestTransactionTimestamp(): Flow<Long?>
+    suspend fun getEarliestTransactionTimestamp(): Long?
+    fun observeRecentTransactions(limit: Int = 5): Flow<List<Transaction>>
     suspend fun getTransactionById(id: Long): Transaction?
     suspend fun recordTransactionAtomically(transaction: Transaction): Long
     suspend fun transferBetweenWalletsAtomically(transfer: Transaction): Long

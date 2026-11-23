@@ -104,25 +104,25 @@ Dokumen ini berisi daftar tugas (*todos*) terstruktur untuk seluruh tahap penger
 
 ### Sprint 4: Impact Warning, Auto-Sweep, Budgets, Security & MVP Dashboard
 #### 4.1 Impact Warning, Auto-Sweep & Category Budgets
-- [ ] `[P0]` **GS-04 (Rumus 2.2.3):** Implementasi `CalculateImpactWarningUseCase`:
+- [x] `[P0]` **GS-04 (Rumus 2.2.3):** Implementasi `CalculateImpactWarningUseCase`:
   - Hitung rata-rata pengeluaran harian 30 hari terakhir ($\mu$, tidak termasuk transfer & konversi aset) atau gunakan batas harian manual; nonaktifkan bila histori $< 7\text{ hari}$ tanpa batas manual atau $v \le 0$.
   - Hitung $\Delta = \max(0, x - \mu)$ dan $\text{Hari mundur} = \lceil \frac{T - S + \Delta}{v} \rceil - \lceil \frac{T - S}{v} \rceil$.
   - Hasilkan peringatan konkret bila $\Delta > 0$ dan $\text{Hari mundur} \ge 1$; picu notifikasi prioritas tinggi bila status jatuh dari `ON_TRACK` ke `DELAYED`.
-- [ ] `[P1]` **GS-05 (Rumus 2.2.3):** Implementasi `AutoSweepSurplusUseCase`:
+- [x] `[P1]` **GS-05 (Rumus 2.2.3):** Implementasi `AutoSweepSurplusUseCase`:
   - Hitung $\text{Sweep} = \max(0, \text{Spendable} - B_{\text{sweep}})$ dengan default $B_{\text{sweep}} = 3\mu$.
   - Alokasikan surplus secara berurutan ke target aktif berdasarkan `priority` tertinggi hingga penuh ($T_j - S_j$).
   - Sediakan dialog konfirmasi bernominal dan mekanisme *Snackbar Undo* selama 10 detik.
-- [ ] `[P1]` **FT-05:** Buat entitas `CategoryBudgetEntity` (`CategoryBudgets` dengan indeks unik `(category, year_month)`), `CategoryBudgetDao`, dan `EvaluateCategoryBudgetUseCase` untuk memicu peringatan pada ambang $80\%$ dan $100\%$.
+- [x] `[P1]` **FT-05:** Buat entitas `CategoryBudgetEntity` (`CategoryBudgets` dengan indeks unik `(category, year_month)`), `CategoryBudgetDao`, dan `EvaluateCategoryBudgetUseCase` untuk memicu peringatan pada ambang $80\%$ dan $100\%$.
 
 #### 4.2 Keamanan Data Lokal (Security NFR)
-- [ ] `[P0]` **NFR-S1:** Implementasi `BiometricAuthManager` dengan `BiometricPrompt` (sidik jari/wajah) dan *fallback* `DEVICE_CREDENTIAL` (PIN/pola), serta penguncian otomatis saat aplikasi kembali dari *background* melewati ambang waktu.
-- [ ] `[P0]` **NFR-S2:** Integrasikan SQLCipher (`SupportOpenHelperFactory`) pada `CatatRapiDatabase` dengan kunci yang dienkripsi melalui Android Keystore.
-- [ ] `[P0]` **NFR-S3:** Buat `EncryptedPreferencesDataStore` berbasis Android Keystore untuk menyimpan pengaturan buffer ($B_{\min}$, $B_{\text{sweep}}$) dan konfigurasi keamanan.
-- [ ] `[P0]` **NFR-S4 & NFR-S5:** Aktifkan `WindowManager.LayoutParams.FLAG_SECURE` pada `MainActivity` dan set `android:allowBackup="false"` di `AndroidManifest.xml`.
+- [x] `[P0]` **NFR-S1:** Implementasi `BiometricAuthManager` dengan `BiometricPrompt` (sidik jari/wajah) dan *fallback* `DEVICE_CREDENTIAL` (PIN/pola), serta penguncian otomatis saat aplikasi kembali dari *background* melewati ambang waktu.
+- [x] `[P0]` **NFR-S2:** Integrasikan SQLCipher (`SupportOpenHelperFactory`) pada `CatatRapiDatabase` dengan kunci yang dienkripsi melalui Android Keystore.
+- [x] `[P0]` **NFR-S3:** Buat `EncryptedPreferencesDataStore` berbasis Android Keystore untuk menyimpan pengaturan buffer ($B_{\min}$, $B_{\text{sweep}}$) dan konfigurasi keamanan.
+- [x] `[P0]` **NFR-S4 & NFR-S5:** Aktifkan `WindowManager.LayoutParams.FLAG_SECURE` pada `MainActivity` dan set `android:allowBackup="false"` di `AndroidManifest.xml`.
 
 #### 4.3 Dashboard Dasar & Quality Gate 1
-- [ ] `[P0]` Buat **Tab 1: Dashboard (MVP)**: Kartu Saldo (Total Saldo vs *Spendable Balance* berdampingan), Ringkasan 3 Target Prioritas Teratas, Banner *Impact Warning*, Tombol Aksi Cepat (*Auto-Sweep*, Transfer), dan 5 Transaksi Terbaru.
-- [ ] `[P0]` **Quality Gate 1:** Tulis unit test lengkap ($>90\%$ coverage) untuk seluruh rumus `2.2.1`, `2.2.2`, dan `2.2.3` (termasuk kasus tepi: pembagian nol, tenggat lewat, $v \le 0$, $\text{Spendable} < 0$) serta verifikasi **NFR-P1 s.d. NFR-P3**.
+- [x] `[P0]` Buat **Tab 1: Dashboard (MVP)**: Kartu Saldo (Total Saldo vs *Spendable Balance* berdampingan), Ringkasan 3 Target Prioritas Teratas, Banner *Impact Warning*, Tombol Aksi Cepat (*Auto-Sweep*, Transfer), dan 5 Transaksi Terbaru.
+- [x] `[P0]` **Quality Gate 1:** Tulis unit test lengkap ($>90\%$ coverage) untuk seluruh rumus `2.2.1`, `2.2.2`, dan `2.2.3` (termasuk kasus tepi: pembagian nol, tenggat lewat, $v \le 0$, $\text{Spendable} < 0$) serta verifikasi **NFR-P1 s.d. NFR-P3**.
 
 ---
 

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +39,7 @@ import com.example.catatrapi.domain.model.GoalContribution
 import com.example.catatrapi.domain.model.GoalStatus
 import com.example.catatrapi.ui.components.CurrencyFormatter
 import com.example.catatrapi.ui.components.DateFormatterId
+import com.example.catatrapi.ui.dashboard.AutoSweepConfirmDialog
 import com.example.catatrapi.ui.theme.finance
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -49,9 +51,11 @@ fun GoalDetailScreen(
     onBack: () -> Unit,
     onContribute: (walletId: Long, amount: BigDecimal) -> Unit,
     onWithdraw: (amount: BigDecimal) -> Unit,
+    onAutoSweep: () -> Unit = {},
     onConsumeMessage: () -> Unit,
 ) {
     var sheetMode by remember { mutableStateOf<GoalAmountMode?>(null) }
+    var showAutoSweepDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.userMessage) {
         uiState.userMessage?.let { msg ->
@@ -150,7 +154,7 @@ fun GoalDetailScreen(
                 item {
                     Row(
                         modifier = side.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Button(
                             onClick = { sheetMode = GoalAmountMode.DEPOSIT },
@@ -162,8 +166,11 @@ fun GoalDetailScreen(
                             enabled = uiState.savedAmount.signum() > 0,
                             modifier = Modifier.weight(1f),
                         ) { Text("Tarik") }
-                        // TODO(Auto-Sweep): tombol Auto-Sweep ditambahkan di sini setelah use case-nya ada
-                        // (belum ada di 3.1; sengaja tidak ditampilkan).
+                        FilledTonalButton(
+                            onClick = { showAutoSweepDialog = true },
+                            enabled = uiState.autoSweepPlan.canExecute && uiState.displayStatus != GoalStatus.ACHIEVED,
+                            modifier = Modifier.weight(1.2f),
+                        ) { Text("Auto-Sweep") }
                     }
                 }
 
@@ -297,6 +304,17 @@ fun GoalDetailScreen(
                             GoalAmountMode.DEPOSIT -> walletId?.let { onContribute(it, amount) }
                             GoalAmountMode.WITHDRAW -> onWithdraw(amount)
                         }
+                    },
+                )
+            }
+
+            if (showAutoSweepDialog) {
+                AutoSweepConfirmDialog(
+                    plan = uiState.autoSweepPlan,
+                    onDismiss = { showAutoSweepDialog = false },
+                    onConfirm = {
+                        showAutoSweepDialog = false
+                        onAutoSweep()
                     },
                 )
             }

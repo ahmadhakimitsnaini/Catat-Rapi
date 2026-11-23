@@ -136,6 +136,18 @@ class TransactionUseCasesTest {
         override fun observeTransactionsInRange(from: Long, to: Long): Flow<List<Transaction>> =
             transactionsFlow
 
+        override suspend fun getTransactionsInRange(from: Long, to: Long): List<Transaction> =
+            transactionsFlow.value
+
+        override fun observeEarliestTransactionTimestamp(): Flow<Long?> =
+            MutableStateFlow(transactionsFlow.value.minOfOrNull { it.occurredAt })
+
+        override suspend fun getEarliestTransactionTimestamp(): Long? =
+            transactionsFlow.value.minOfOrNull { it.occurredAt }
+
+        override fun observeRecentTransactions(limit: Int): Flow<List<Transaction>> =
+            transactionsFlow
+
         override suspend fun getTransactionById(id: Long): Transaction? =
             transactionsFlow.value.firstOrNull { it.id == id }
 

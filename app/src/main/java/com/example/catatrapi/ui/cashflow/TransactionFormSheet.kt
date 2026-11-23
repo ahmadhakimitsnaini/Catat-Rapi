@@ -60,6 +60,7 @@ fun TransactionFormSheet(
     wallets: List<Wallet>,
     currentSpendable: SpendableBalance,
     initialWalletId: Long? = null,
+    initialType: TransactionType? = null,
     editingTransaction: Transaction? = null,
     onDismiss: () -> Unit,
     onSaveIncomeOrExpense: (
@@ -87,8 +88,8 @@ fun TransactionFormSheet(
         TransactionType.TRANSFER,
     )
 
-    var selectedType by remember(editingTransaction) {
-        mutableStateOf(editingTransaction?.type ?: TransactionType.EXPENSE)
+    var selectedType by remember(editingTransaction, initialType) {
+        mutableStateOf(editingTransaction?.type ?: initialType ?: TransactionType.EXPENSE)
     }
 
     var selectedWalletId by remember(editingTransaction, wallets, initialWalletId) {

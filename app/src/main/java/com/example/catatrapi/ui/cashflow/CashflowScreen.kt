@@ -45,8 +45,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
@@ -72,6 +74,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
+import com.example.catatrapi.domain.model.BudgetAlertLevel
+import com.example.catatrapi.domain.model.CategoryBudgetEvaluation
 import com.example.catatrapi.domain.model.MonthlyCashflowSummary
 import com.example.catatrapi.domain.model.SpendableBalance
 import com.example.catatrapi.domain.model.Transaction
@@ -105,10 +109,13 @@ fun CashflowScreen(
     onArchiveWallet: (Long) -> Unit,
     onEditTransactionRequest: (Transaction) -> Unit,
     onDeleteTransaction: (Transaction) -> Unit,
+    onUpsertCategoryBudget: (TransactionCategory, BigDecimal) -> Unit = { _, _ -> },
+    onDeleteCategoryBudget: (Long) -> Unit = {},
     onConsumeMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showWalletDialog by remember { mutableStateOf(false) }
+    var showBudgetSheet by remember { mutableStateOf(false) }
     var editingWallet by remember { mutableStateOf<Wallet?>(null) }
     var archivingWallet by remember { mutableStateOf<Wallet?>(null) }
     var deletingTransaction by remember { mutableStateOf<Transaction?>(null) }
@@ -150,13 +157,15 @@ fun CashflowScreen(
             )
         }
 
-        // 2. Selektor Bulan & Ringkasan Periode Bulanan
+        // 2. Selektor Bulan & Ringkasan Periode Bulanan + Indikator Anggaran Kategori (FT-05)
         item {
             MonthlyCashflowSummarySection(
                 selectedMonth = uiState.selectedMonth,
                 summary = uiState.monthlySummary,
+                categoryBudgets = uiState.categoryBudgets,
                 onPreviousMonth = onPreviousMonth,
                 onNextMonth = onNextMonth,
+                onManageBudgetsClick = { showBudgetSheet = true },
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
@@ -290,6 +299,20 @@ fun CashflowScreen(
                 TextButton(onClick = { deletingTransaction = null }) {
                     Text("Batal")
                 }
+            },
+        )
+    }
+
+    if (showBudgetSheet) {
+        CategoryBudgetSheet(
+            selectedMonth = uiState.selectedMonth,
+            existingEvaluations = uiState.categoryBudgets,
+            onDismiss = { showBudgetSheet = false },
+            onSaveBudget = { category, limit ->
+                onUpsertCategoryBudget(category, limit)
+            },
+            onDeleteBudget = { budgetId ->
+                onDeleteCategoryBudget(budgetId)
             },
         )
     }
@@ -561,8 +584,10 @@ private fun WalletCarouselHeader(
 private fun MonthlyCashflowSummarySection(
     selectedMonth: YearMonth,
     summary: MonthlyCashflowSummary,
+    categoryBudgets: List<CategoryBudgetEvaluation>,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
+    onManageBudgetsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val monthEpochMillis = remember(selectedMonth) {
@@ -655,6 +680,60 @@ private fun MonthlyCashflowSummarySection(
                             MaterialTheme.finance.expense
                         },
                     )
+                }
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Anggaran Kategori (${categoryBudgets.size})",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                TextButton(onClick = onManageBudgetsClick) {
+                    Text("Atur Anggaran")
+                }
+            }
+
+            if (categoryBudgets.isNotEmpty()) {
+                val financeColors = MaterialTheme.finance
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    categoryBudgets.forEach { eval ->
+                        val barColor = when (eval.alertLevel) {
+                            BudgetAlertLevel.EXCEEDED_100 -> financeColors.expense
+                            BudgetAlertLevel.WARNING_80 -> financeColors.warning
+                            BudgetAlertLevel.NORMAL -> financeColors.income
+                        }
+                        val progress = eval.usageRatio.toFloat().coerceIn(0f, 1f)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = eval.budget.category.labelId,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    text = "${CurrencyFormatter.format(eval.spentAmount)} / ${CurrencyFormatter.format(eval.budget.limitAmount)} (${eval.usagePercentage}%)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = barColor,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                color = barColor,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
             }
         }

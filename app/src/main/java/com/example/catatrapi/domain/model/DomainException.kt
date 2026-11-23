@@ -12,4 +12,8 @@ sealed class DomainException(override val message: String) : IllegalArgumentExce
     class InvalidGoalContributionException(message: String) : DomainException(message)
     class GoalContributionExceedsSpendableException(message: String = "Nominal setoran melebihi Saldo Spendable yang tersedia.") : DomainException(message)
     class GoalWithdrawExceedsSavedAmountException(message: String = "Nominal penarikan melebihi dana yang terkumpul pada Target Tabungan ini.") : DomainException(message)
+
+    // Sprint 4: Auto-Sweep & Category Budgets
+    class NoAutoSweepSurplusException(message: String = "Tidak ada surplus Spendable di atas buffer yang dapat dialokasikan ke Target Tabungan.") : DomainException(message)
+    class InvalidCategoryBudgetException(message: String) : DomainException(message)
 }

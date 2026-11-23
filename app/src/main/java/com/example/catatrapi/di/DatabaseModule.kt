@@ -1,6 +1,7 @@
 package com.example.catatrapi.di
 
 import android.content.Context
+import com.example.catatrapi.data.local.dao.CategoryBudgetDao
 import com.example.catatrapi.data.local.dao.SavingGoalDao
 import com.example.catatrapi.data.local.dao.TransactionDao
 import com.example.catatrapi.data.local.dao.WalletDao
@@ -20,4 +21,5 @@ object DatabaseModule {
     @Provides fun provideWalletDao(db: CatatRapiDatabase): WalletDao = db.walletDao()
     @Provides fun provideTransactionDao(db: CatatRapiDatabase): TransactionDao = db.transactionDao()
     @Provides fun provideSavingGoalDao(db: CatatRapiDatabase): SavingGoalDao = db.savingGoalDao()
+    @Provides fun provideCategoryBudgetDao(db: CatatRapiDatabase): CategoryBudgetDao = db.categoryBudgetDao()
 }
